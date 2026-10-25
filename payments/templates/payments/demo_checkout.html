@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SlotBook - payment test page</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; color: #1b1f23; }
+    h1 { font-size: 1.4rem; }
+    fieldset { border: 1px solid #c8ccd0; border-radius: 8px; margin: 14px 0; padding: 12px 16px; }
+    legend { font-weight: 600; padding: 0 6px; }
+    input { padding: 6px 8px; margin: 4px 6px 4px 0; }
+    button { padding: 7px 14px; border: 0; border-radius: 6px; background: #1f3a5f; color: #fff; cursor: pointer; }
+    button:disabled { background: #9aa5b1; cursor: not-allowed; }
+    #log { background: #101418; color: #d6e2ee; padding: 12px; border-radius: 8px; min-height: 120px; white-space: pre-wrap; font-size: 0.85rem; }
+    .note { color: #555; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>SlotBook payment test page</h1>
+  <p class="note">Only visible while DEBUG=True. Use Razorpay <b>TEST</b> keys. Follow the steps from top to bottom.</p>
+
+  <fieldset>
+    <legend>1. Log in</legend>
+    <input id="username" placeholder="username" value="alice">
+    <input id="password" type="password" placeholder="password" value="DemoPass#123">
+    <button id="loginBtn">Log in</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. Book a slot</legend>
+    <input id="slotId" type="number" min="1" placeholder="slot id">
+    <button id="bookBtn" disabled>Book (10 minute hold)</button>
+    <button id="slotsBtn" disabled>Show open slots</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. Pay</legend>
+    <input id="bookingId" type="number" min="1" placeholder="booking id">
+    <button id="payBtn" disabled>Pay with Razorpay</button>
+  </fieldset>
+
+  <h3>Log</h3>
+  <div id="log"></div>
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    var token = null;
+    var logBox = document.getElementById("log");
+
+    function log(title, data) {
+      var text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+      logBox.textContent = "[" + new Date().toLocaleTimeString() + "] " + title + "\n" + text + "\n\n" + logBox.textContent;
+    }
+
+    function api(method, url, body) {
+      var headers = { "Content-Type": "application/json" };
+      if (token) { headers["Authorization"] = "Bearer " + token; }
+      return fetch(url, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined })
+        .then(function (response) {
+          return response.text().then(function (text) {
+            var data;
+            try { data = JSON.parse(text); } catch (e) { data = text; }
+            return { status: response.status, data: data };
+          });
+        });
+    }
+
+    document.getElementById("loginBtn").onclick = function () {
+      api("POST", "/api/auth/login/", {
+        username: document.getElementById("username").value,
+        password: document.getElementById("password").value
+      }).then(function (r) {
+        if (r.status === 200) {
+          token = r.data.access;
+          document.getElementById("bookBtn").disabled = false;
+          document.getElementById("slotsBtn").disabled = false;
+          document.getElementById("payBtn").disabled = false;
+          log("Logged in", "Access token received (valid 30 minutes).");
+        } else {
+          log("Login failed (HTTP " + r.status + ")", r.data);
+        }
+      });
+    };
+
+    document.getElementById("slotsBtn").onclick = function () {
+      api("GET", "/api/slots/?page_size=5").then(function (r) {
+        log("Open slots (HTTP " + r.status + ")", r.data);
+      });
+    };
+
+    document.getElementById("bookBtn").onclick = function () {
+      var slotId = parseInt(document.getElementById("slotId").value, 10);
+      api("POST", "/api/bookings/", { slot_id: slotId }).then(function (r) {
+        log("Book slot " + slotId + " (HTTP " + r.status + ")", r.data);
+        if (r.status === 201) { document.getElementById("bookingId").value = r.data.id; }
+      });
+    };
+
+    document.getElementById("payBtn").onclick = function () {
+      var bookingId = parseInt(document.getElementById("bookingId").value, 10);
+      api("POST", "/api/payments/create-order/", { booking_id: bookingId }).then(function (r) {
+        log("Create order (HTTP " + r.status + ")", r.data);
+        if (r.status !== 200) { return; }
+        if (r.data.free) { log("Free slot", "Booking confirmed without payment."); return; }
+
+        var options = {
+          key: r.data.key_id,
+          amount: r.data.amount,
+          currency: r.data.currency,
+          name: "SlotBook",
+          description: "Booking #" + r.data.booking_id,
+          order_id: r.data.order_id,
+          handler: function (response) {
+            // Razorpay gives us these three values after a successful payment.
+            log("Razorpay says paid", response);
+            api("POST", "/api/payments/verify/", {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            }).then(function (v) { log("Our server verified it (HTTP " + v.status + ")", v.data); });
+          },
+          modal: {
+            ondismiss: function () { log("Checkout closed", "No payment was made."); }
+          },
+          theme: { color: "#1f3a5f" }
+        };
+        var checkout = new Razorpay(options);
+        checkout.on("payment.failed", function (response) {
+          log("Payment failed", response.error);
+        });
+        checkout.open();
+      });
+    };
+  </script>
+</body>
+</html>

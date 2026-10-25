@@ -1,20 +1,15 @@
-asgiref==3.12.1
-attrs==26.1.0
-Django==5.2.17
-django-filter==26.1
-djangorestframework==3.18.1
-djangorestframework_simplejwt==5.5.1
-drf-spectacular==0.30.0
-inflection==0.5.1
-jsonschema==4.26.0
-jsonschema-specifications==2025.9.1
-psycopg2-binary==2.9.13
-PyJWT==2.15.1
-python-decouple==3.8
-PyYAML==6.0.3
-referencing==0.37.0
-rpds-py==2026.6.3
-sqlparse==0.6.0
-typing_extensions==4.16.0
-tzdata==2026.4
-uritemplate==4.2.0
+# Packages the app needs to RUN (used by the Dockerfile).
+# Tested together on Python 3.12. Upgrade on purpose, one at a time, and run the tests.
+Django>=5.2,<6.0
+djangorestframework>=3.16,<4.0
+djangorestframework-simplejwt>=5.5,<6.0
+django-filter>=25.1
+drf-spectacular>=0.28
+psycopg2-binary>=2.9.10
+python-decouple>=3.8
+dj-database-url>=3.0
+celery[redis]>=5.5,<6.0
+razorpay>=2.0
+gunicorn>=23.0
+whitenoise>=6.9
+django-cors-headers>=4.6

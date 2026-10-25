@@ -1,0 +1,23 @@
+# Run:  pytest --cov            (prints the table)
+#       pytest --cov --cov-report=html     then open htmlcov/index.html
+[run]
+source = bookings, payments, users, venues, config
+branch = True
+omit =
+    */migrations/*
+    */tests/*
+    */tests.py
+    tests/*
+    conftest.py
+    manage.py
+    config/wsgi.py
+    config/asgi.py
+
+[report]
+# Fail (and fail the CI) if coverage of OUR code drops below this number.
+fail_under = 90
+show_missing = True
+skip_covered = True
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

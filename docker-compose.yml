@@ -1,0 +1,76 @@
+# Runs the WHOLE project on your laptop with one command:   docker compose up --build
+#   db      PostgreSQL            redis   Redis (the message queue for Celery)
+#   web     Django + Gunicorn     worker  Celery worker      beat   Celery Beat (the scheduler)
+#
+# Before the first start:  copy .env.docker.example to .env.docker and edit the values.
+name: slotbook
+
+x-app: &app
+  build: .
+  image: slotbook:local
+  env_file: .env.docker
+  environment:
+    # These two tell the app where the other containers are. Inside the compose network
+    # the hosts are called "db" and "redis" (not localhost!).
+    REDIS_URL: redis://redis:6379/0
+    CACHE_URL: redis://redis:6379/1
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16
+    env_file: .env.docker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  web:
+    <<: *app
+    command: ["web"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health/', timeout=4).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  worker:
+    <<: *app
+    command: ["worker"]
+    depends_on:
+      web:
+        condition: service_healthy   # the web container has finished the migrations
+
+  beat:
+    <<: *app
+    command: ["beat"]
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:

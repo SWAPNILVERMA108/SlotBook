@@ -1,0 +1,7 @@
+# Keep Linux-style line endings for scripts, even if you work on Windows.
+# (A shell script with Windows line endings fails inside a Linux container with a
+#  confusing "no such file or directory" error.)
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

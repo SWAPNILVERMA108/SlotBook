@@ -1,0 +1,23 @@
+# Code-quality settings for "ruff", a very fast Python linter and formatter.
+# Run:   ruff check .        (finds problems)
+#        ruff check . --fix  (fixes the easy ones)
+#        ruff format .       (formats code)
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["migrations", ".venv", "venv"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle: style errors and warnings
+    "F",        # pyflakes: unused imports, undefined names
+    "I",        # isort: sorted imports
+    "B",        # bugbear: likely bugs
+    "UP",       # pyupgrade: modern Python syntax
+    "DJ",       # Django-specific checks
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files may have long lines (long names and data make tests easier to read).
+"**/tests.py" = ["E501"]
+"**/tests/*.py" = ["E501"]

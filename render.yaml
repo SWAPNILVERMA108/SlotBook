@@ -1,0 +1,59 @@
+# Render Blueprint for the Dockerized Django API.
+# Create a Render Key Value instance in the dashboard and set REDIS_URL and
+# CACHE_URL on each service. Those fields are intentionally not declared here
+# until the current Render Blueprint schema documents the Key Value resource.
+services:
+  - type: web
+    name: slotbook-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: web
+    healthCheckPath: /api/health/
+    envVars: &app-env
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: HTTPS_ONLY
+        value: "True"
+      - key: BEHIND_PROXY
+        value: "True"
+      - key: NUM_PROXIES
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: slotbook-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: CACHE_URL
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+  - type: worker
+    name: slotbook-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: worker
+    envVars: *app-env
+
+  - type: worker
+    name: slotbook-beat
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: beat
+    envVars: *app-env
+
+databases:
+  - name: slotbook-db
+    databaseName: slotbook
+    user: slotbook
+    plan: free

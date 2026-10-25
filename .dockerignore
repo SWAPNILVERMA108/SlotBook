@@ -1,0 +1,31 @@
+# Things that must NEVER be copied into the Docker image.
+# Most important: secret files. A secret baked into an image can be read by anyone with the image.
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# Local junk
+.venv/
+venv/
+.git/
+.github/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+staticfiles/
+celerybeat-schedule*
+*.sqlite3
+
+# Not needed to run the app
+docs/
+tests/
+conftest.py
+pytest.ini
+.coveragerc
+requirements-dev.txt
+docker-compose.yml
+Dockerfile
