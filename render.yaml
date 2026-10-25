@@ -1,14 +1,16 @@
-# Render Blueprint for the Dockerized Django API.
-# Create a Render Key Value instance in the dashboard and set REDIS_URL and
-# CACHE_URL on each service. Those fields are intentionally not declared here
-# until the current Render Blueprint schema documents the Key Value resource.
+# Free Render Blueprint for the Dockerized Django API.
+# Create one free Render Key Value instance in the dashboard and set REDIS_URL
+# and CACHE_URL on this service. Key Value is intentionally not declared here
+# because it is configured separately in Render.
 services:
   - type: web
     name: slotbook-web
+    plan: free
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: web
+    # Runs Gunicorn, Celery worker, and Celery Beat in one free service.
+    dockerCommand: all
     healthCheckPath: /api/health/
     envVars: &app-env
       - key: SECRET_KEY
@@ -35,22 +37,6 @@ services:
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
-
-  - type: worker
-    name: slotbook-worker
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    dockerCommand: worker
-    envVars: *app-env
-
-  - type: worker
-    name: slotbook-beat
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    dockerCommand: beat
-    envVars: *app-env
 
 databases:
   - name: slotbook-db

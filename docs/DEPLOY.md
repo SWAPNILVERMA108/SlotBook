@@ -1,33 +1,33 @@
 # Deploy SlotBook on Render
 
-This repository deploys the Docker image as three Render services:
+This free deployment runs the Docker image as one Render web service:
 
-- **Web**: Django, Gunicorn, migrations, and `/api/health/`.
-- **Worker**: Celery task worker.
-- **Beat**: Celery scheduler for expired holds and pending refunds.
+- **Web**: Django, Gunicorn, migrations, Celery worker, Celery Beat, and
+  `/api/health/`.
 
-The `render.yaml` Blueprint creates these services and a PostgreSQL database.
-Create a Render Key Value instance in the dashboard, then provide its connection
-URL as `REDIS_URL` and `CACHE_URL` on all three services. Use the URL exactly as
-Render provides it; both `redis://` and `rediss://` are supported.
+The `render.yaml` Blueprint creates the free web service and a free PostgreSQL
+database. Create one free Render Key Value instance in the dashboard, then
+provide its connection URL as `REDIS_URL` and `CACHE_URL` on the web service.
+Use the URL exactly as Render provides it; both `redis://` and `rediss://` are
+supported.
 
 ## Blueprint setup
 
 1. Push this repository to GitHub and create a new Blueprint in Render.
 2. Select the repository and apply `render.yaml`.
-3. Create a Render Key Value instance in the same region.
-4. Set these environment variables on `slotbook-web`, `slotbook-worker`, and
-   `slotbook-beat`:
+3. Choose the **Free** plan for the web service and PostgreSQL database.
+4. Create one **Free** Render Key Value instance in the same region.
+5. Set these environment variables on `slotbook-web`:
    - `REDIS_URL`: the Key Value connection URL.
    - `CACHE_URL`: the same URL, preferably with a different Redis database
      number when the provider supports URL database suffixes.
    - `RAZORPAY_KEY_ID`
    - `RAZORPAY_KEY_SECRET`
    - `RAZORPAY_WEBHOOK_SECRET`
-5. Set `CORS_ALLOWED_ORIGINS` if a separate frontend calls the API. Use
+6. Set `CORS_ALLOWED_ORIGINS` if a separate frontend calls the API. Use
    comma-separated full origins such as `https://app.example.com`; never use
    `*`.
-6. Add any custom domain to `ALLOWED_HOSTS` and its full HTTPS origin to
+7. Add any custom domain to `ALLOWED_HOSTS` and its full HTTPS origin to
    `CSRF_TRUSTED_ORIGINS`. Render automatically supplies
    `RENDER_EXTERNAL_HOSTNAME` and `RENDER_EXTERNAL_URL`, which settings.py adds
    when present.
@@ -45,8 +45,23 @@ repository or into logs.
 - WhiteNoise serves files collected while the Docker image is built.
 - The health check is `GET /api/health/`; it requires PostgreSQL and reports
   Redis status without making Redis availability take the API down.
-- Keep both the worker and beat services running. Beat must run continuously or
-  expired booking holds and pending refunds will not be processed.
+- The `all` command starts the worker and Beat in the same container as
+  Gunicorn. Beat is required for expired booking holds and pending refunds.
+
+## Free-tier limitations
+
+This setup is for demos and testing, not dependable production use:
+
+- Free web services sleep after 15 minutes without inbound traffic and can take
+  about a minute to wake.
+- The free PostgreSQL database expires after 30 days and has 1 GB of storage.
+  Render provides a grace period to upgrade before deletion, but there are no
+  free database backups.
+- Free Key Value is in-memory. Render can restart it, which loses queued Celery
+  messages and cache data.
+- When the web service sleeps, Celery worker and Beat sleep with it. Expired
+  holds and refunds may be delayed until the service wakes.
+- Do not use this free configuration for real payments or production bookings.
 
 After deployment, verify:
 
@@ -58,10 +73,9 @@ https://<render-hostname>/api/docs/
 The health response should report `"database": "connected"` and, once the Redis
 URL is configured, `"redis": "connected"`.
 
-## Manual alternative
+## Paid production alternative
 
-If Blueprint synchronization is not desired, create one Docker web service and
-two Docker background workers using this repository. Use `web`, `worker`, and
-`beat` as their Docker commands. Configure the same environment variables on
-all three services and use the PostgreSQL connection string supplied by Render
-as `DATABASE_URL`.
+For reliable production scheduling, create separate paid Docker services using
+the `web`, `worker`, and `beat` commands. Configure the same environment
+variables on all three services and use the PostgreSQL connection string
+supplied by Render as `DATABASE_URL`.
